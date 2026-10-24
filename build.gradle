@@ -301,21 +301,71 @@ build.dependsOn finalJar
 
 tasks.register('verifyBundledApi') {
 	dependsOn fatJar, finalJar
-	def resourcePath = 'META-INF/neofabric/NeoFabric-API-0.92.12+1.20.1.jar'
-	def originalApi = file("src/main/resources/${resourcePath}")
-	inputs.file(originalApi)
+	def indexResource = 'META-INF/neofabric/apis/index.json'
+	def indexFile = file("src/main/resources/${indexResource}")
+	inputs.file(indexFile)
+	inputs.files(fileTree('src/main/resources/META-INF/neofabric') { include '**/*.jar' })
+	inputs.file('src/main/resources/fabric.mod.json')
 	inputs.files(fatJar.archiveFile, finalJar.archiveFile)
 
 	doLast {
-		byte[] originalBytes = originalApi.bytes
+		def index = new groovy.json.JsonSlurper().parse(indexFile)
+		if (index.schemaVersion != 1 || !(index.apis instanceof Map) || index.apis.isEmpty()) {
+			throw new GradleException('Invalid or empty bundled NeoFabric API index')
+		}
+
+		def supportedVersions = new groovy.json.JsonSlurper().parse(file('src/main/resources/fabric.mod.json')).depends.minecraft
+		def originals = [(indexResource): indexFile.bytes]
+		def indexedApiPaths = new LinkedHashSet<String>()
+
+		index.apis.each { minecraftVersion, api ->
+			def prefix = "META-INF/neofabric/apis/${minecraftVersion}/"
+			if (!supportedVersions.contains(minecraftVersion) || !(api.resource instanceof String)
+					|| !api.resource.startsWith(prefix) || !(api.resource.substring(prefix.length()) ==~ /[A-Za-z0-9._+\-]+\.jar/)
+					|| !(api.sha512 instanceof String) || !(api.sha512 ==~ /[0-9a-f]{128}/)) {
+				throw new GradleException("Invalid bundled API entry for Minecraft ${minecraftVersion}")
+			}
+
+			def originalApi = file("src/main/resources/${api.resource}")
+			if (!originalApi.isFile()) throw new GradleException("Missing bundled API resource: ${api.resource}")
+			byte[] bytes = originalApi.bytes
+			def checksum = java.security.MessageDigest.getInstance('SHA-512').digest(bytes).encodeHex().toString()
+			if (checksum != api.sha512) throw new GradleException("Bundled API checksum mismatch: ${api.resource}")
+
+			new java.util.zip.ZipFile(originalApi).withCloseable { zip ->
+				def metadataEntry = zip.getEntry('fabric.mod.json')
+				if (metadataEntry == null) throw new GradleException("Missing API metadata: ${api.resource}")
+				def metadata = zip.getInputStream(metadataEntry).withCloseable { input ->
+					new groovy.json.JsonSlurper().parse(input)
+				}
+				if (metadata.id != 'fabric-api' || metadata.version != api.apiVersion) {
+					throw new GradleException("Bundled API identity/version mismatch: ${api.resource}")
+				}
+			}
+
+			indexedApiPaths.add(api.resource)
+			originals[api.resource] = bytes
+		}
+
+		def actualApiPaths = fileTree('src/main/resources/META-INF/neofabric') { include '**/*.jar' }.files.collect { resource ->
+			file('src/main/resources').toPath().relativize(resource.toPath()).toString().replace('\\', '/')
+		}.toSet()
+		if (actualApiPaths != indexedApiPaths) throw new GradleException('Bundled API resources and index do not match')
 
 		[fatJar.archiveFile.get().asFile, finalJar.archiveFile.get().asFile].each { archive ->
 			new java.util.zip.ZipFile(archive).withCloseable { zip ->
-				def entry = zip.getEntry(resourcePath)
-				if (entry == null) throw new GradleException("Bundled NeoFabric API is missing from ${archive.name}")
-				byte[] packagedBytes = zip.getInputStream(entry).withCloseable { it.bytes }
-				if (!Arrays.equals(originalBytes, packagedBytes)) {
-					throw new GradleException("Bundled NeoFabric API was modified in ${archive.name}")
+				def packagedApiPaths = Collections.list(zip.entries()).findAll { entry ->
+					entry.name.startsWith('META-INF/neofabric/') && entry.name.endsWith('.jar')
+				}.collect { it.name }.toSet()
+				if (packagedApiPaths != indexedApiPaths) throw new GradleException("Unexpected bundled APIs in ${archive.name}")
+
+				originals.each { resourcePath, originalBytes ->
+					def entry = zip.getEntry(resourcePath)
+					if (entry == null) throw new GradleException("Missing bundled resource ${resourcePath} in ${archive.name}")
+					byte[] packagedBytes = zip.getInputStream(entry).withCloseable { it.bytes }
+					if (!Arrays.equals(originalBytes, packagedBytes)) {
+						throw new GradleException("Bundled resource ${resourcePath} was modified in ${archive.name}")
+					}
 				}
 			}
 		}

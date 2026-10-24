@@ -16,17 +16,28 @@
 
 package net.fabricmc.loader.impl.game;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 import net.fabricmc.loader.impl.FormattedException;
 
 public final class NeoFabricGameVersion {
-	public static final String MINECRAFT_VERSION = "1.20.1";
+	public static final Set<String> SUPPORTED_VERSIONS = Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(
+			"1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6")));
+
+	public static boolean isSupported(String version) {
+		return SUPPORTED_VERSIONS.contains(version);
+	}
 
 	public static void check(GameProvider provider) {
-		if (!"minecraft".equals(provider.getGameId()) || !MINECRAFT_VERSION.equals(provider.getNormalizedGameVersion())) {
-			String game = provider.getGameName();
-			String version = provider.getNormalizedGameVersion();
-			throw new FormattedException("不支持的游戏版本", "NeoFabric 仅支持 Minecraft %s，当前为 %s %s。",
-					MINECRAFT_VERSION, game != null ? game : "未知游戏", version != null ? version : "未知版本");
+		String version = provider != null ? provider.getNormalizedGameVersion() : null;
+
+		if (provider == null || !"minecraft".equals(provider.getGameId()) || !isSupported(version)) {
+			String game = provider != null ? provider.getGameName() : null;
+			throw new FormattedException("不支持的游戏版本", "NeoFabric 仅支持 Minecraft 1.20.1 至 1.20.6（仅正式版），当前为 %s %s。",
+					game != null ? game : "未知游戏", version != null ? version : "未知版本");
 		}
 	}
 

@@ -21,13 +21,17 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -39,10 +43,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.loader.impl.FabricLoaderImpl;
+import net.fabricmc.loader.impl.FormattedException;
 import net.fabricmc.loader.impl.ModContainerImpl;
 import net.fabricmc.loader.impl.game.GameProvider;
 import net.fabricmc.loader.impl.game.GameProvider.BuiltinMod;
@@ -58,9 +65,10 @@ class BundledModCandidateFinderTest {
 	private FabricLoaderImpl loader;
 	private ModDiscoverer discoverer;
 	private BundledModCandidateFinder finder;
+	private BundledApiRegistry.Entry apiEntry;
 
 	@BeforeEach
-	void setUp() {
+	void setUp() throws IOException {
 		GameProvider provider = mock();
 		when(provider.getBuiltinMods()).thenReturn(Arrays.asList(
 				new BuiltinMod(Collections.singletonList(tempDir), new BuiltinModMetadata.Builder("minecraft", "1.20.1").build()),
@@ -68,19 +76,21 @@ class BundledModCandidateFinderTest {
 		loader = mock();
 		when(loader.getGameProvider()).thenReturn(provider);
 		discoverer = new ModDiscoverer(mock(), mock());
-		finder = new BundledModCandidateFinder(tempDir, false);
+		finder = new BundledModCandidateFinder(tempDir, false, "1.20.1");
+		apiEntry = BundledApiRegistry.load().require("1.20.1");
 	}
 
 	@Test
 	void extractsOriginalBytesAndRepairsCorruptCache() throws IOException {
 		Path original = tempDir.resolve("original.jar");
 
-		try (InputStream resource = BundledModCandidateFinder.class.getResourceAsStream(BundledModCandidateFinder.API_RESOURCE)) {
+		try (InputStream resource = BundledModCandidateFinder.class.getResourceAsStream("/" + apiEntry.getResource())) {
 			Assertions.assertNotNull(resource);
 			Files.copy(resource, original);
 		}
 
 		Path extracted = finder.extractBundledApi();
+		Assertions.assertEquals(cachePath(apiEntry), extracted);
 		Assertions.assertArrayEquals(Files.readAllBytes(original), Files.readAllBytes(extracted));
 		Assertions.assertEquals(extracted, finder.extractBundledApi());
 		Files.write(extracted, "corrupted cache".getBytes(StandardCharsets.UTF_8));
@@ -118,7 +128,7 @@ class BundledModCandidateFinderTest {
 
 	@Test
 	void developmentDependencyUsesItsOriginalCodeSource() throws Exception {
-		discoverer.addCandidateFinder(new BundledModCandidateFinder(tempDir, true));
+		discoverer.addCandidateFinder(new BundledModCandidateFinder(tempDir, true, "1.20.1"));
 		List<ModCandidateImpl> discovered = discoverer.discoverMods(loader, new HashMap<>());
 		Path library = LoaderUtil.normalizeExistingPath(UrlUtil.getCodeSource(MixinExtrasBootstrap.class));
 		Assertions.assertTrue(discovered.stream().anyMatch(mod -> mod.hasPath() && mod.getPaths().contains(library)));
@@ -126,7 +136,7 @@ class BundledModCandidateFinderTest {
 
 	@Test
 	void externalCopyWithSameFileNameAndModIdIsRejected() throws Exception {
-		Path external = Files.copy(finder.extractBundledApi(), tempDir.resolve(BundledModCandidateFinder.API_FILE_NAME));
+		Path external = Files.copy(finder.extractBundledApi(), tempDir.resolve(apiEntry.getFileName()));
 		discoverer.addCandidateFinder(out -> out.accept(LoaderUtil.normalizeExistingPath(external), false));
 		List<ModCandidateImpl> discovered = discoverer.discoverMods(loader, new HashMap<>());
 		Assertions.assertFalse(discovered.stream().anyMatch(mod -> mod.getId().equals("fabric-api")));
@@ -167,6 +177,88 @@ class BundledModCandidateFinderTest {
 		Assertions.assertTrue(find(discovered, "external_parent").getNestedMods().isEmpty());
 		Assertions.assertFalse(find(discovered, "fabric-api-base").getParentMods().stream()
 				.anyMatch(mod -> mod.getId().equals("external_parent")));
+	}
+
+	static Stream<Arguments> missingApiCases() {
+		List<Arguments> cases = new ArrayList<>();
+
+		for (String version : Arrays.asList("1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6")) {
+			cases.add(Arguments.of(version, false));
+			cases.add(Arguments.of(version, true));
+		}
+
+		return cases.stream();
+	}
+
+	@ParameterizedTest
+	@MethodSource("missingApiCases")
+	void missingApiRejectsLegacyAndDisguisedCachesBeforeEmittingCandidates(String version, boolean requiresRemap) throws IOException {
+		Path original = finder.extractBundledApi();
+		Path cacheRoot = tempDir.resolve(FabricLoaderImpl.CACHE_DIR_NAME).resolve("neofabric").resolve("bundled");
+		Path legacyCache = Files.copy(original, cacheRoot.resolve(apiEntry.getFileName()));
+		Path disguisedCache = cacheRoot.resolve(version).resolve(apiEntry.getSha512().substring(0, 16)).resolve(apiEntry.getFileName());
+		Files.createDirectories(disguisedCache.getParent());
+		Files.copy(original, disguisedCache);
+		List<Path> candidates = new ArrayList<>();
+		BundledModCandidateFinder missingFinder = new BundledModCandidateFinder(tempDir, requiresRemap, version);
+		FormattedException error = Assertions.assertThrows(FormattedException.class,
+				() -> missingFinder.findCandidates((paths, remap) -> candidates.addAll(paths)));
+		Assertions.assertTrue(error.getMessage().contains(version));
+		Assertions.assertTrue(error.getMessage().contains("不会回退"));
+		Assertions.assertTrue(candidates.isEmpty(), "No API or MixinExtras candidate may be emitted after a missing selection");
+		Assertions.assertArrayEquals(Files.readAllBytes(original), Files.readAllBytes(legacyCache));
+		Assertions.assertArrayEquals(Files.readAllBytes(original), Files.readAllBytes(disguisedCache));
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {true, false})
+	void missingResourceCannotReuseValidSameVersionCache(boolean requiresRemap) throws IOException {
+		Path original = finder.extractBundledApi();
+		String missingResource = BundledApiRegistry.RESOURCE_ROOT + "1.20.1/missing.jar";
+		BundledApiRegistry registry = registry(missingResource, apiEntry.getSha512());
+		Path cached = cachePath(registry.require("1.20.1"));
+		Files.copy(original, cached);
+		List<Path> candidates = new ArrayList<>();
+		BundledModCandidateFinder missingFinder = new BundledModCandidateFinder(tempDir, requiresRemap, "1.20.1", registry);
+		FormattedException error = Assertions.assertThrows(FormattedException.class,
+				() -> missingFinder.findCandidates((paths, remap) -> candidates.addAll(paths)));
+		Assertions.assertTrue(error.getMessage().contains("缺少 Minecraft 1.20.1 的内置资源"));
+		Assertions.assertTrue(error.getMessage().contains(missingResource));
+		Assertions.assertTrue(candidates.isEmpty());
+		Assertions.assertArrayEquals(Files.readAllBytes(original), Files.readAllBytes(cached));
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {true, false})
+	void changedChecksumCannotReusePreviouslyValidCache(boolean requiresRemap) throws IOException {
+		Path original = finder.extractBundledApi();
+		String wrongChecksum = String.join("", Collections.nCopies(128, "0"));
+		BundledApiRegistry registry = registry(apiEntry.getResource(), wrongChecksum);
+		Path cached = cachePath(registry.require("1.20.1"));
+		Files.createDirectories(cached.getParent());
+		Files.copy(original, cached);
+		List<Path> candidates = new ArrayList<>();
+		BundledModCandidateFinder invalidFinder = new BundledModCandidateFinder(tempDir, requiresRemap, "1.20.1", registry);
+		FormattedException error = Assertions.assertThrows(FormattedException.class,
+				() -> invalidFinder.findCandidates((paths, remap) -> candidates.addAll(paths)));
+		Assertions.assertTrue(error.getMessage().contains("SHA-512 校验失败"));
+		Assertions.assertTrue(candidates.isEmpty());
+		Assertions.assertArrayEquals(Files.readAllBytes(original), Files.readAllBytes(cached));
+
+		try (Stream<Path> files = Files.list(cached.getParent())) {
+			Assertions.assertEquals(Collections.singletonList(cached), files.collect(Collectors.toList()));
+		}
+	}
+
+	private BundledApiRegistry registry(String resource, String checksum) throws IOException {
+		return BundledApiRegistry.parse(new StringReader("{\"schemaVersion\":1,\"apis\":{\"1.20.1\":{"
+				+ "\"apiVersion\":\"" + apiEntry.getApiVersion() + "\",\"resource\":\"" + resource
+				+ "\",\"sha512\":\"" + checksum + "\"}}}"));
+	}
+
+	private Path cachePath(BundledApiRegistry.Entry entry) {
+		return tempDir.resolve(FabricLoaderImpl.CACHE_DIR_NAME).resolve("neofabric").resolve("bundled")
+				.resolve(entry.getMinecraftVersion()).resolve(entry.getSha512().substring(0, 16)).resolve(entry.getFileName());
 	}
 
 	private static ModCandidateImpl find(List<ModCandidateImpl> mods, String id) {
