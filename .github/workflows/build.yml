@@ -5,6 +5,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Set up JDK 17 for Minecraft 1.20.1-1.20.4
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -13,7 +18,36 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Build with Gradle
-        run: ./gradlew build --stacktrace
+        run: ./gradlew build --stacktrace --max-workers=2
+      - name: Verify all six Minecraft test reports
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          totals = [0, 0, 0, 0]
+          rows = []
+          for report in Path('.').glob('**/build/test-results/test/TEST-*.xml'):
+              suite = ET.parse(report).getroot()
+              counts = [int(suite.get(key, 0)) for key in ('tests', 'failures', 'errors', 'skipped')]
+              totals = [a + b for a, b in zip(totals, counts)]
+          for version in ('1.20.1', '1.20.2', '1.20.3', '1.20.4', '1.20.5', '1.20.6'):
+              project = 'minecraft-test' if version == '1.20.1' else f'minecraft-test-{version}'
+              reports = list(Path('minecraft', project, 'build/test-results/test').glob('TEST-*.xml'))
+              count = sum(int(ET.parse(report).getroot().get('tests', 0)) for report in reports)
+              if count == 0:
+                  raise SystemExit(f'Missing integration tests for Minecraft {version}')
+              java = 17 if version in ('1.20.1', '1.20.2', '1.20.3', '1.20.4') else 21
+              rows.append(f'| {version} | {java} | {count} |')
+          if totals[0] == 0 or any(totals[1:]):
+              raise SystemExit(f'Unexpected test totals (tests/failures/errors/skipped): {totals}')
+          summary = '\n'.join(['| Minecraft | Java | Tests |', '| --- | --- | --- |', *rows,
+                               '', f'Total: {totals[0]} tests, 0 failures, 0 errors, 0 skipped.'])
+          print(summary)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as output:
+              output.write(summary + '\n')
+          PY
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
