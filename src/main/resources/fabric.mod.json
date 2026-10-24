@@ -6,6 +6,9 @@
   "environment": "*",
   "description": "NeoFabric",
   "neofabric": true,
+  "depends": {
+    "minecraft": "1.20.1"
+  },
   "contact": {
     "homepage": "https://fabricmc.net",
     "irc": "ircs://irc.esper.net:6697/fabric",

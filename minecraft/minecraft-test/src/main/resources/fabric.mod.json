@@ -3,6 +3,7 @@
   "id": "minecraft-test",
   "name": "Minecraft Test Mod",
   "version": "1.0.0",
+  "neofabric": true,
   "mixins": [
     {
       "config": "fabricmc.test.mixins.client.json",

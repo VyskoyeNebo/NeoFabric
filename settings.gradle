@@ -1,8 +1,17 @@
 pluginManagement {
 	repositories {
-		maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
-		maven { url = 'https://maven.aliyun.com/repository/public' }
-		maven { url = 'https://maven.aliyun.com/repository/google' }
+		maven {
+			url = 'https://maven.aliyun.com/repository/gradle-plugin'
+			content { excludeGroupByRegex 'net\\.fabricmc(\\..*)?' }
+		}
+		maven {
+			url = 'https://maven.aliyun.com/repository/public'
+			content { excludeGroupByRegex 'net\\.fabricmc(\\..*)?' }
+		}
+		maven {
+			url = 'https://maven.aliyun.com/repository/google'
+			content { excludeGroupByRegex 'net\\.fabricmc(\\..*)?' }
+		}
 		maven {
 			url = "https://maven.fabricmc.net"
 			name = "FabricMC"

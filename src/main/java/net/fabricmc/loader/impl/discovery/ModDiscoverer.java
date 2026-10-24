@@ -68,6 +68,7 @@ import net.fabricmc.loader.impl.metadata.VersionOverrides;
 import net.fabricmc.loader.impl.util.ExceptionUtil;
 import net.fabricmc.loader.impl.util.LoaderUtil;
 import net.fabricmc.loader.impl.util.SystemProperties;
+import net.fabricmc.loader.impl.util.UrlUtil;
 import net.fabricmc.loader.impl.util.log.Log;
 import net.fabricmc.loader.impl.util.log.LogCategory;
 
@@ -77,6 +78,7 @@ public final class ModDiscoverer {
 	private final List<ModCandidateFinder> candidateFinders = new ArrayList<>();
 	private final EnvType envType = FabricLoaderImpl.INSTANCE.getEnvironmentType();
 	private final Map<Long, ModScanTask> jijDedupMap = new ConcurrentHashMap<>(); // avoids reading the same jar twice
+	private final Map<Long, ModScanTask> bundledJijDedupMap = new ConcurrentHashMap<>(); // never share gate decisions with external jars
 	private final List<NestedModInitData> nestedModInitDatas = Collections.synchronizedList(new ArrayList<>()); // breaks potential cycles from deduplication
 	private final List<Path> nonFabricMods = Collections.synchronizedList(new ArrayList<>());
 
@@ -95,23 +97,24 @@ public final class ModDiscoverer {
 		Set<Path> processedPaths = new HashSet<>(); // suppresses duplicate paths
 		List<Future<ModCandidateImpl>> futures = new ArrayList<>();
 
-		ModCandidateConsumer taskSubmitter = (paths, requiresRemap) -> {
-			List<Path> pendingPaths = new ArrayList<>(paths.size());
-
-			for (Path path : paths) {
-				assert path.equals(LoaderUtil.normalizeExistingPath(path));
-
-				if (processedPaths.add(path)) {
-					pendingPaths.add(path);
-				}
-			}
-
-			if (!pendingPaths.isEmpty()) {
-				futures.add(pool.submit(new ModScanTask(pendingPaths, requiresRemap)));
-			}
-		};
-
 		for (ModCandidateFinder finder : candidateFinders) {
+			boolean bundled = finder instanceof BundledModCandidateFinder;
+			ModCandidateConsumer taskSubmitter = (paths, requiresRemap) -> {
+				List<Path> pendingPaths = new ArrayList<>(paths.size());
+
+				for (Path path : paths) {
+					assert path.equals(LoaderUtil.normalizeExistingPath(path));
+
+					if (processedPaths.add(path)) {
+						pendingPaths.add(path);
+					}
+				}
+
+				if (!pendingPaths.isEmpty()) {
+					futures.add(pool.submit(new ModScanTask(pendingPaths, requiresRemap, bundled)));
+				}
+			};
+
 			finder.findCandidates(taskSubmitter);
 		}
 
@@ -257,19 +260,25 @@ public final class ModDiscoverer {
 		private final RewindableInputStream is;
 		private final long hash;
 		private final boolean requiresRemap;
+		private final boolean bundled;
 		private final List<String> parentPaths;
 
 		ModScanTask(List<Path> paths, boolean requiresRemap) {
-			this(paths, null, null, -1, requiresRemap, Collections.emptyList());
+			this(paths, requiresRemap, false);
+		}
+
+		ModScanTask(List<Path> paths, boolean requiresRemap, boolean bundled) {
+			this(paths, null, null, -1, requiresRemap, bundled, Collections.emptyList());
 		}
 
 		private ModScanTask(List<Path> paths, String localPath, RewindableInputStream is, long hash,
-				boolean requiresRemap, List<String> parentPaths) {
+				boolean requiresRemap, boolean bundled, List<String> parentPaths) {
 			this.paths = paths;
 			this.localPath = localPath != null ? localPath : paths.get(0).toString();
 			this.is = is;
 			this.hash = hash;
 			this.requiresRemap = requiresRemap;
+			this.bundled = bundled;
 			this.parentPaths = parentPaths;
 		}
 
@@ -479,6 +488,10 @@ public final class ModDiscoverer {
 		}
 
 		private List<ModScanTask> computeNestedMods(ZipEntrySource entrySource) throws IOException {
+			// Also retain Loader's own packaged libraries (for example MixinExtras).
+			boolean nestedBundled = bundled || paths != null && UrlUtil.LOADER_CODE_SOURCE != null
+					&& paths.contains(LoaderUtil.normalizeExistingPath(UrlUtil.LOADER_CODE_SOURCE));
+			Map<Long, ModScanTask> dedupMap = nestedBundled ? bundledJijDedupMap : jijDedupMap;
 			List<String> parentPaths = new ArrayList<>(this.parentPaths.size() + 1);
 			parentPaths.addAll(this.parentPaths);
 			parentPaths.add(localPath);
@@ -489,11 +502,11 @@ public final class ModDiscoverer {
 
 			while ((entry = entrySource.getNextEntry()) != null) {
 				long hash = ModCandidateImpl.hash(entry);
-				ModScanTask task = jijDedupMap.get(hash);
+				ModScanTask task = dedupMap.get(hash);
 
 				if (task == null) {
-					task = new ModScanTask(null, entry.getName(), entrySource.getInputStream(), hash, requiresRemap, parentPaths);
-					ModScanTask prev = jijDedupMap.putIfAbsent(hash, task);
+					task = new ModScanTask(null, entry.getName(), entrySource.getInputStream(), hash, requiresRemap, nestedBundled, parentPaths);
+					ModScanTask prev = dedupMap.putIfAbsent(hash, task);
 
 					if (prev != null) {
 						task = prev;
@@ -518,6 +531,8 @@ public final class ModDiscoverer {
 			RewindableInputStream metadataInput = new RewindableInputStream(is);
 			LoaderModMetadata metadata = ModMetadataParser.parseMetadata(metadataInput, localPath, parentPaths,
 					versionOverrides, depOverrides, FabricLoaderImpl.INSTANCE.isDevelopmentEnvironment());
+			if (bundled) return metadata;
+
 			metadataInput.rewind();
 			boolean compatible = false;
 

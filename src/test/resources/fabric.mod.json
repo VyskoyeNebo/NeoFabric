@@ -3,6 +3,7 @@
   "id": "test",
   "name": "Test Mod",
   "version": "1.0.0",
+  "neofabric": true,
   "side": "client",
   "entrypoints": {
     "preLaunch": [

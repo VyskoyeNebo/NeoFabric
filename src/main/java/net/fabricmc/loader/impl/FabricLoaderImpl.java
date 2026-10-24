@@ -47,6 +47,7 @@ import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.ObjectShare;
 import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
 import net.fabricmc.loader.impl.discovery.ArgumentModCandidateFinder;
+import net.fabricmc.loader.impl.discovery.BundledModCandidateFinder;
 import net.fabricmc.loader.impl.discovery.ClasspathModCandidateFinder;
 import net.fabricmc.loader.impl.discovery.DirectoryModCandidateFinder;
 import net.fabricmc.loader.impl.discovery.ModCandidateImpl;
@@ -56,6 +57,7 @@ import net.fabricmc.loader.impl.discovery.ModResolver;
 import net.fabricmc.loader.impl.discovery.RuntimeModRemapper;
 import net.fabricmc.loader.impl.entrypoint.EntrypointStorage;
 import net.fabricmc.loader.impl.game.GameProvider;
+import net.fabricmc.loader.impl.game.NeoFabricGameVersion;
 import net.fabricmc.loader.impl.launch.FabricLauncherBase;
 import net.fabricmc.loader.impl.launch.MappingConfiguration;
 import net.fabricmc.loader.impl.launch.knot.Knot;
@@ -199,6 +201,7 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 	public void load() {
 		if (provider == null) throw new IllegalStateException("game provider not set");
 		if (frozen) throw new IllegalStateException("Frozen - cannot load additional mods!");
+		NeoFabricGameVersion.check(provider);
 
 		try {
 			setup();
@@ -219,6 +222,7 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 		// discover mods
 
 		ModDiscoverer discoverer = new ModDiscoverer(versionOverrides, depOverrides);
+		discoverer.addCandidateFinder(new BundledModCandidateFinder(gameDir, remapRegularMods));
 		discoverer.addCandidateFinder(new ClasspathModCandidateFinder());
 		discoverer.addCandidateFinder(new DirectoryModCandidateFinder(getModsDirectory0(), remapRegularMods));
 		discoverer.addCandidateFinder(new ArgumentModCandidateFinder(remapRegularMods));

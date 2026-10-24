@@ -61,7 +61,7 @@ public class JunitTest {
 	public void testMixinExtras() {
 		// MixinGrassBlock sets isFertilizable to true
 		GrassBlock grassBlock = (GrassBlock) Blocks.GRASS_BLOCK;
-		boolean isFertilizable = grassBlock.isFertilizable(null, BlockPos.ORIGIN, null);
+		boolean isFertilizable = grassBlock.isFertilizable(null, BlockPos.ORIGIN, null, false);
 		assertTrue(isFertilizable);
 	}
 

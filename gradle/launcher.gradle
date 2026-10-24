@@ -30,7 +30,7 @@ abstract class InstallDevelopmentVersionTask extends DefaultTask {
 
 	InstallDevelopmentVersionTask() {
 		versionName.convention("fabric-loader-${project.version.toString()}")
-		minecraftVersion.convention("1.20.2")
+		minecraftVersion.convention("1.20.1")
 		versionJsonFile.set(project.layout.file(project.provider {
 			new File(getDotMinecraftDirectory(), "versions/${versionName.get()}/${versionName.get()}.json")
 		}))
