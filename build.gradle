@@ -2,6 +2,12 @@ import net.fabricmc.loom.build.nesting.JarNester
 import org.slf4j.LoggerFactory
 
 buildscript {
+	repositories {
+		maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+		maven { url = 'https://maven.aliyun.com/repository/public' }
+		maven { url = 'https://maven.aliyun.com/repository/google' }
+	}
+
 	dependencies {
 		classpath 'org.kohsuke:github-api:1.135'
 		classpath 'com.guardsquare:proguard-gradle:7.7.0'
@@ -21,7 +27,7 @@ plugins {
 }
 
 base {
-	archivesName = "fabric-loader"
+	archivesName = "neofabric-loader"
 }
 
 def ENV = System.getenv()
@@ -36,6 +42,9 @@ allprojects {
 	version = (constantsSource =~ /\s+VERSION\s*=\s*"(.*)";/)[0][1] + (ENV.GITHUB_ACTIONS ? "" : "+local")
 
 	repositories {
+		maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+		maven { url = 'https://maven.aliyun.com/repository/public' }
+		maven { url = 'https://maven.aliyun.com/repository/google' }
 		maven {
 			name = 'Fabric'
 			url = 'https://maven.fabricmc.net/'

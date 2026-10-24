@@ -1,10 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "fabricloader",
-  "name": "Fabric Loader",
+  "name": "NeoFabric",
   "version": "${version}",
   "environment": "*",
-  "description": "The base mod loader.",
+  "description": "NeoFabric",
+  "neofabric": true,
   "contact": {
     "homepage": "https://fabricmc.net",
     "irc": "ircs://irc.esper.net:6697/fabric",

@@ -88,7 +88,7 @@ public class GetNonFabricModsTest {
 			}
 		}
 
-		Assertions.assertTrue(foundDummyFabricMod);
+		Assertions.assertFalse(foundDummyFabricMod); // Ordinary Fabric mods do not declare NeoFabric compatibility.
 
 		List<Path> nonFabricMods = discoverer.getNonFabricMods();
 		Assertions.assertEquals(1, nonFabricMods.size());

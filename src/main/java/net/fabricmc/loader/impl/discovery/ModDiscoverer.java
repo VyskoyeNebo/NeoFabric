@@ -18,7 +18,9 @@ package net.fabricmc.loader.impl.discovery;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -53,6 +55,8 @@ import net.fabricmc.loader.impl.FabricLoaderImpl;
 import net.fabricmc.loader.impl.FormattedException;
 import net.fabricmc.loader.impl.discovery.ModCandidateFinder.ModCandidateConsumer;
 import net.fabricmc.loader.impl.game.GameProvider.BuiltinMod;
+import net.fabricmc.loader.impl.lib.gson.JsonReader;
+import net.fabricmc.loader.impl.lib.gson.JsonToken;
 import net.fabricmc.loader.impl.metadata.BuiltinModMetadata;
 import net.fabricmc.loader.impl.metadata.DependencyOverrides;
 import net.fabricmc.loader.impl.metadata.LoaderModMetadata;
@@ -314,6 +318,8 @@ public final class ModDiscoverer {
 				metadata = parseMetadata(is, path.toString());
 			}
 
+			if (metadata == null) return null;
+
 			return ModCandidateImpl.createPlain(paths, metadata, requiresRemap, Collections.emptyList());
 		}
 
@@ -331,6 +337,8 @@ public final class ModDiscoverer {
 				try (InputStream is = zf.getInputStream(entry)) {
 					metadata = parseMetadata(is, localPath);
 				}
+
+				if (metadata == null) return null;
 
 				if (!metadata.loadsInEnvironment(envType)) {
 					return ModCandidateImpl.createPlain(paths, metadata, requiresRemap, Collections.emptyList());
@@ -506,8 +514,39 @@ public final class ModDiscoverer {
 			return tasks;
 		}
 
-		private LoaderModMetadata parseMetadata(InputStream is, String localPath) throws ParseMetadataException {
-			return ModMetadataParser.parseMetadata(is, localPath, parentPaths, versionOverrides, depOverrides, FabricLoaderImpl.INSTANCE.isDevelopmentEnvironment());
+		private LoaderModMetadata parseMetadata(InputStream is, String localPath) throws IOException, ParseMetadataException {
+			RewindableInputStream metadataInput = new RewindableInputStream(is);
+			LoaderModMetadata metadata = ModMetadataParser.parseMetadata(metadataInput, localPath, parentPaths,
+					versionOverrides, depOverrides, FabricLoaderImpl.INSTANCE.isDevelopmentEnvironment());
+			metadataInput.rewind();
+			boolean compatible = false;
+
+			try (JsonReader reader = new JsonReader(new InputStreamReader(metadataInput, StandardCharsets.UTF_8))) {
+				reader.beginObject();
+
+				while (reader.hasNext()) {
+					if ("neofabric".equals(reader.nextName())) {
+						compatible = reader.peek() == JsonToken.BOOLEAN;
+
+						if (compatible) {
+							compatible = reader.nextBoolean();
+						} else {
+							reader.skipValue();
+						}
+					} else {
+						reader.skipValue();
+					}
+				}
+
+				reader.endObject();
+			}
+
+			if (!compatible) {
+				Log.error(LogCategory.DISCOVERY, "模组 [%s] 未声明 NeoFabric 兼容标识（neofabric: true），已被拒绝加载", metadata.getId());
+				return null;
+			}
+
+			return metadata;
 		}
 	}
 
