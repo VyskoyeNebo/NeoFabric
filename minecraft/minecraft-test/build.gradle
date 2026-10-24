@@ -46,6 +46,7 @@ def remapClasspath = tasks.named("generateRemapClasspath", net.fabricmc.loom.tas
 
 test {
 	useJUnitPlatform()
+	maxHeapSize = "2G"
 	dependsOn remapClasspath
 	inputs.file(remapClasspath.flatMap { it.remapClasspathFile })
 
