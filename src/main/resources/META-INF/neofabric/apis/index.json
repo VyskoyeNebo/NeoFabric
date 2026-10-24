@@ -6,6 +6,24 @@
       "resource": "META-INF/neofabric/apis/1.20.1/NeoFabric-API-0.92.12+1.20.1.jar",
       "sha512": "de9da2344043b3e9ef9fb7dbfff5f2577b06000c4f73f2a37959a80123141169084cece19133bd299b45feaaa4648bdaca2ea085684888cc8c55cc9134a477ca",
       "source": "https://modrinth.com/mod/fabric-api/version/rvI2dfzR"
+    },
+    "1.20.2": {
+      "apiVersion": "0.91.6+1.20.2",
+      "resource": "META-INF/neofabric/apis/1.20.2/NeoFabric-API-0.91.6+1.20.2.jar",
+      "sha512": "bfa5c6f949cb782ce84de24ad3ef324690fa4f84dea57e4d2f311e1b30b9ed1dac2c17aee25f7a26d0312d808f2ed6a8ab81c79d38dda9774c87c324305cec67",
+      "source": "https://modrinth.com/mod/fabric-api/version/8GVp7wDk"
+    },
+    "1.20.3": {
+      "apiVersion": "0.91.1+1.20.3",
+      "resource": "META-INF/neofabric/apis/1.20.3/NeoFabric-API-0.91.1+1.20.3.jar",
+      "sha512": "03acb0086fcd89ba1b4f5f069a38318536e0e5aefff9722b0068b0fd09563123bf6493a16f4e6cac2816fccbdfe1c4bdacfe29de5f15603c3b5a15bcc8ef5b6a",
+      "source": "https://modrinth.com/mod/fabric-api/version/Yolngp3s"
+    },
+    "1.20.4": {
+      "apiVersion": "0.97.3+1.20.4",
+      "resource": "META-INF/neofabric/apis/1.20.4/NeoFabric-API-0.97.3+1.20.4.jar",
+      "sha512": "ea1e47672a1e0fef7fa3fd7f7b396b5a8fb2c46e6ce33dbc4cc2b8d320bc7b775a0de42a478302419c8063c47fbc18bb2ad7551772f54af8059132ac2cb4f108",
+      "source": "https://modrinth.com/mod/fabric-api/version/BPX6fK06"
     }
   }
 }

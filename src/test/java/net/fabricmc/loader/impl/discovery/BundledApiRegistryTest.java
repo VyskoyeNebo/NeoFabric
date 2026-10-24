@@ -39,9 +39,9 @@ class BundledApiRegistryTest {
 	private static final String TEST_RESOURCE = BundledApiRegistry.RESOURCE_ROOT + "1.20.1/test-api.jar";
 
 	@Test
-	void bundledIndexContainsOnlyConfiguredMinecraft1201() throws IOException {
+	void bundledIndexContainsConfiguredMinecraft1201Through1204() throws IOException {
 		BundledApiRegistry registry = BundledApiRegistry.load();
-		Assertions.assertEquals(Collections.singletonList("1.20.1"), new ArrayList<>(registry.getEntries().keySet()));
+		Assertions.assertEquals(Arrays.asList("1.20.1", "1.20.2", "1.20.3", "1.20.4"), new ArrayList<>(registry.getEntries().keySet()));
 		BundledApiRegistry.Entry entry = registry.require("1.20.1");
 		Assertions.assertEquals("1.20.1", entry.getMinecraftVersion());
 		Assertions.assertEquals("0.92.12+1.20.1", entry.getApiVersion());
@@ -54,12 +54,21 @@ class BundledApiRegistryTest {
 	@ParameterizedTest
 	@ValueSource(strings = {"1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6"})
 	void supportedButUnconfiguredVersionsNeverFallBack(String version) throws IOException {
-		BundledApiRegistry registry = BundledApiRegistry.load();
+		BundledApiRegistry registry = parse(index(record("1.20.1", fields("test-api", TEST_RESOURCE, TEST_CHECKSUM))));
 		IOException error = Assertions.assertThrows(IOException.class, () -> registry.require(version));
 		Assertions.assertTrue(error.getMessage().contains("Minecraft " + version));
 		Assertions.assertTrue(error.getMessage().contains("尚未内置"));
 		Assertions.assertTrue(error.getMessage().contains("不会回退"));
 		Assertions.assertEquals("1.20.1", registry.require("1.20.1").getMinecraftVersion());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"1.20.5", "1.20.6"})
+	void bundledIndexRejectsVersionsWithoutResources(String version) throws IOException {
+		IOException error = Assertions.assertThrows(IOException.class, () -> BundledApiRegistry.load().require(version));
+		Assertions.assertTrue(error.getMessage().contains("Minecraft " + version));
+		Assertions.assertTrue(error.getMessage().contains("尚未内置"));
+		Assertions.assertTrue(error.getMessage().contains("不会回退"));
 	}
 
 	@ParameterizedTest
@@ -101,7 +110,7 @@ class BundledApiRegistryTest {
 		Assertions.assertThrows(UnsupportedOperationException.class, () -> entries.put("1.20.2", entry));
 		Assertions.assertThrows(UnsupportedOperationException.class, () -> entries.entrySet().iterator().next().setValue(null));
 		Assertions.assertSame(entry, registry.require("1.20.1"));
-		Assertions.assertEquals(Collections.singleton("1.20.1"), entries.keySet());
+		Assertions.assertEquals(Arrays.asList("1.20.1", "1.20.2", "1.20.3", "1.20.4"), new ArrayList<>(entries.keySet()));
 	}
 
 	static Stream<Arguments> invalidIndexes() {
