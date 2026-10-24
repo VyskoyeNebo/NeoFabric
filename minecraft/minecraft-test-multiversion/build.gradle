@@ -1,0 +1,101 @@
+// Each consumer is an independent Loom project and test JVM; Minecraft singletons cannot be reused across versions.
+apply plugin: 'fabric-loom'
+
+def minecraftVersion = project.minecraftTestVersion
+def yarnBuild = project.minecraftTestYarnBuild
+def sharedSources = rootProject.file('minecraft/minecraft-test-multiversion/src')
+def apiIndex = rootProject.file('src/main/resources/META-INF/neofabric/apis/index.json')
+
+base {
+	archivesName = "neofabric-minecraft-test-${minecraftVersion}"
+}
+
+sourceSets {
+	main {
+		java.srcDirs = [new File(sharedSources, 'main/java')]
+		resources.srcDirs = [new File(sharedSources, 'main/resources')]
+	}
+	test {
+		java.srcDirs = [new File(sharedSources, 'test/java')]
+		resources.srcDirs = []
+	}
+}
+
+// Spotless requires targets inside its project directory; the root project owns the shared sources.
+spotless {
+	java {
+		target fileTree(projectDir) { include 'src/**/*.java' }
+	}
+}
+
+rootProject.spotless {
+	java {
+		target(rootProject.sourceSets.collect { it.allJava }, rootProject.fileTree(sharedSources) { include '**/*.java' })
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${minecraftVersion}"
+	mappings "net.fabricmc:yarn:${minecraftVersion}+build.${yarnBuild}:v2"
+
+	implementation project(':minecraft')
+	implementation project(':minecraft').sourceSets.main.output
+	implementation project(':').sourceSets.main.output
+
+	annotationProcessor "org.ow2.asm:asm:${project.asm_version}"
+	annotationProcessor "org.ow2.asm:asm-analysis:${project.asm_version}"
+	annotationProcessor "org.ow2.asm:asm-commons:${project.asm_version}"
+	annotationProcessor "org.ow2.asm:asm-tree:${project.asm_version}"
+	annotationProcessor "org.ow2.asm:asm-util:${project.asm_version}"
+	annotationProcessor("net.fabricmc:sponge-mixin:${project.mixin_version}") {
+		exclude module: 'launchwrapper'
+		exclude module: 'guava'
+	}
+	annotationProcessor "io.github.llamalad7:mixinextras-fabric:${project.mixin_extras_version}"
+
+	testImplementation project(':junit')
+	testImplementation 'org.junit.jupiter:junit-jupiter-params'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_17
+	targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+	options.release = 17
+}
+
+tasks.named('processResources') {
+	inputs.property('minecraftVersion', minecraftVersion)
+	filesMatching('fabric.mod.json') {
+		expand minecraftVersion: minecraftVersion
+	}
+}
+
+def remapClasspath = tasks.named('generateRemapClasspath')
+
+tasks.named('test', Test) {
+	useJUnitPlatform()
+	maxHeapSize = '2G'
+	maxParallelForks = 1
+	dependsOn remapClasspath
+	inputs.file(remapClasspath.flatMap { it.remapClasspathFile })
+	inputs.file(apiIndex)
+	inputs.property('minecraftVersion', minecraftVersion)
+	workingDir layout.buildDirectory.dir('run').get().asFile
+	testLogging {
+		exceptionFormat = 'full'
+	}
+
+	doFirst {
+		def api = new groovy.json.JsonSlurper().parse(apiIndex).apis[minecraftVersion]
+		if (api == null) throw new GradleException("No bundled API index entry for test Minecraft ${minecraftVersion}")
+		workingDir.mkdirs()
+		systemProperty('fabric.remapClasspathFile', remapClasspath.get().remapClasspathFile.get().asFile.absolutePath)
+		systemProperty('neofabric.test.minecraftVersion', minecraftVersion)
+		systemProperty('neofabric.test.apiVersion', api.apiVersion)
+	}
+}

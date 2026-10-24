@@ -6,3 +6,7 @@
 !/.gitignore
 
 !/minecraft-test
+!/minecraft-test-multiversion
+!/minecraft-test-1.20.2
+!/minecraft-test-1.20.3
+!/minecraft-test-1.20.4

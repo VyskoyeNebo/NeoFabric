@@ -200,7 +200,8 @@ class BundledModCandidateFinderTest {
 		Files.createDirectories(disguisedCache.getParent());
 		Files.copy(original, disguisedCache);
 		List<Path> candidates = new ArrayList<>();
-		BundledModCandidateFinder missingFinder = new BundledModCandidateFinder(tempDir, requiresRemap, version);
+		BundledApiRegistry configuredFor1201 = registry(apiEntry.getResource(), apiEntry.getSha512());
+		BundledModCandidateFinder missingFinder = new BundledModCandidateFinder(tempDir, requiresRemap, version, configuredFor1201);
 		FormattedException error = Assertions.assertThrows(FormattedException.class,
 				() -> missingFinder.findCandidates((paths, remap) -> candidates.addAll(paths)));
 		Assertions.assertTrue(error.getMessage().contains(version));

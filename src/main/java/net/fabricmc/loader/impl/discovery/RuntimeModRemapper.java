@@ -153,7 +153,7 @@ public final class RuntimeModRemapper {
 					remapMixins.add(tag);
 				}
 
-				remapper.readInputsAsync(tag, info.inputPath);
+				remapper.readInputs(tag, info.inputPath);
 			}
 
 			//Done in a 2nd loop as we need to make sure all the inputs are present before remapping

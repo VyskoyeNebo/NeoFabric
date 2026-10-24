@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "neofabric-multiversion-test",
+  "name": "NeoFabric Multi-version Integration Test",
+  "version": "1.0.0",
+  "neofabric": true,
+  "depends": {
+    "minecraft": "${minecraftVersion}",
+    "fabric-api": "*"
+  },
+  "mixins": [
+    {
+      "config": "neofabric.multiversion.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "entrypoints": {
+    "main": [
+      "net.fabricmc.minecraft.multiversion.TestEntrypoint"
+    ]
+  }
+}
