@@ -36,18 +36,17 @@ import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import net.fabricmc.api.EnvType;
 import net.fabricmc.loader.impl.FabricLoaderImpl;
 import net.fabricmc.loader.impl.game.GameProvider;
-import net.fabricmc.loader.impl.launch.FabricLauncher;
-import net.fabricmc.loader.impl.launch.FabricLauncherBase;
 import net.fabricmc.loader.impl.util.LoaderUtil;
 
+@ExtendWith(LauncherTestExtension.class)
 class NeoFabricGateTest {
 	@TempDir
 	Path tempDir;
@@ -57,10 +56,6 @@ class NeoFabricGateTest {
 
 	@BeforeEach
 	void setUp() {
-		FabricLauncher launcher = mock();
-		when(launcher.getEnvironmentType()).thenReturn(EnvType.CLIENT);
-		FabricLauncherBase.setLauncher(launcher);
-
 		GameProvider provider = mock();
 		when(provider.getBuiltinMods()).thenReturn(Collections.emptyList());
 		loader = mock();

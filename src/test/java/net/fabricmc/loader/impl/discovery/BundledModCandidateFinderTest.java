@@ -36,6 +36,7 @@ import com.llamalad7.mixinextras.MixinExtrasBootstrap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -45,12 +46,11 @@ import net.fabricmc.loader.impl.FabricLoaderImpl;
 import net.fabricmc.loader.impl.ModContainerImpl;
 import net.fabricmc.loader.impl.game.GameProvider;
 import net.fabricmc.loader.impl.game.GameProvider.BuiltinMod;
-import net.fabricmc.loader.impl.launch.FabricLauncher;
-import net.fabricmc.loader.impl.launch.FabricLauncherBase;
 import net.fabricmc.loader.impl.metadata.BuiltinModMetadata;
 import net.fabricmc.loader.impl.util.LoaderUtil;
 import net.fabricmc.loader.impl.util.UrlUtil;
 
+@ExtendWith(LauncherTestExtension.class)
 class BundledModCandidateFinderTest {
 	@TempDir
 	Path tempDir;
@@ -61,10 +61,6 @@ class BundledModCandidateFinderTest {
 
 	@BeforeEach
 	void setUp() {
-		FabricLauncher launcher = mock();
-		when(launcher.getEnvironmentType()).thenReturn(EnvType.CLIENT);
-		FabricLauncherBase.setLauncher(launcher);
-
 		GameProvider provider = mock();
 		when(provider.getBuiltinMods()).thenReturn(Arrays.asList(
 				new BuiltinMod(Collections.singletonList(tempDir), new BuiltinModMetadata.Builder("minecraft", "1.20.1").build()),

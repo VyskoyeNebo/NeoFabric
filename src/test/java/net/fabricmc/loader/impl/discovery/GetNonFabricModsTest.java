@@ -30,16 +30,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
-import net.fabricmc.api.EnvType;
 import net.fabricmc.loader.impl.FabricLoaderImpl;
 import net.fabricmc.loader.impl.game.GameProvider;
-import net.fabricmc.loader.impl.launch.FabricLauncher;
-import net.fabricmc.loader.impl.launch.FabricLauncherBase;
 import net.fabricmc.loader.impl.util.LoaderUtil;
 
+@ExtendWith(LauncherTestExtension.class)
 public class GetNonFabricModsTest {
 	private FabricLoaderImpl loader;
 	private ModDiscoverer discoverer;
@@ -53,10 +52,6 @@ public class GetNonFabricModsTest {
 		GameProvider provider = mock();
 		when(provider.getBuiltinMods()).thenReturn(Collections.emptyList());
 
-		FabricLauncher launcher = mock();
-		when(launcher.getEnvironmentType()).thenReturn(EnvType.CLIENT);
-		when(launcher.isDevelopment()).thenReturn(false);
-		FabricLauncherBase.setLauncher(launcher);
 		loader = mock();
 		when(loader.getGameProvider()).thenReturn(provider);
 		when(loader.isDevelopmentEnvironment()).thenReturn(false);
