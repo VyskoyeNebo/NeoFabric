@@ -42,8 +42,16 @@ dependencies {
 	testRuntimeOnly('org.junit.platform:junit-platform-launcher')
 }
 
+def remapClasspath = tasks.named("generateRemapClasspath", net.fabricmc.loom.task.launch.GenerateRemapClasspathTask)
+
 test {
 	useJUnitPlatform()
+	dependsOn remapClasspath
+	inputs.file(remapClasspath.flatMap { it.remapClasspathFile })
+
+	doFirst {
+		systemProperty("fabric.remapClasspathFile", remapClasspath.get().remapClasspathFile.get().asFile.absolutePath)
+	}
 }
 
 java {
