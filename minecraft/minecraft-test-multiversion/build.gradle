@@ -3,6 +3,7 @@ apply plugin: 'fabric-loom'
 
 def minecraftVersion = project.minecraftTestVersion
 def yarnBuild = project.minecraftTestYarnBuild
+def javaVersion = project.minecraftTestJavaVersion as Integer
 def sharedSources = rootProject.file('minecraft/minecraft-test-multiversion/src')
 def apiIndex = rootProject.file('src/main/resources/META-INF/neofabric/apis/index.json')
 
@@ -17,6 +18,10 @@ sourceSets {
 	}
 	test {
 		java.srcDirs = [new File(sharedSources, 'test/java')]
+		if (javaVersion == 21) {
+			// Item data components do not exist before 1.20.5, so older compilers never see these sources.
+			java.srcDir new File(sharedSources, 'componentTest/java')
+		}
 		resources.srcDirs = []
 	}
 }
@@ -59,13 +64,24 @@ dependencies {
 }
 
 java {
-	sourceCompatibility = JavaVersion.VERSION_17
-	targetCompatibility = JavaVersion.VERSION_17
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(javaVersion)
+	}
+	sourceCompatibility = JavaVersion.toVersion(javaVersion)
+	targetCompatibility = JavaVersion.toVersion(javaVersion)
+}
+
+def testCompiler = javaToolchains.compilerFor {
+	languageVersion = JavaLanguageVersion.of(javaVersion)
+}
+def testLauncher = javaToolchains.launcherFor {
+	languageVersion = JavaLanguageVersion.of(javaVersion)
 }
 
 tasks.withType(JavaCompile).configureEach {
+	javaCompiler = testCompiler
 	options.encoding = 'UTF-8'
-	options.release = 17
+	options.release = javaVersion
 }
 
 tasks.named('processResources') {
@@ -79,12 +95,14 @@ def remapClasspath = tasks.named('generateRemapClasspath')
 
 tasks.named('test', Test) {
 	useJUnitPlatform()
+	javaLauncher = testLauncher
 	maxHeapSize = '2G'
 	maxParallelForks = 1
 	dependsOn remapClasspath
 	inputs.file(remapClasspath.flatMap { it.remapClasspathFile })
 	inputs.file(apiIndex)
 	inputs.property('minecraftVersion', minecraftVersion)
+	inputs.property('javaVersion', javaVersion)
 	workingDir layout.buildDirectory.dir('run').get().asFile
 	testLogging {
 		exceptionFormat = 'full'
@@ -94,8 +112,10 @@ tasks.named('test', Test) {
 		def api = new groovy.json.JsonSlurper().parse(apiIndex).apis[minecraftVersion]
 		if (api == null) throw new GradleException("No bundled API index entry for test Minecraft ${minecraftVersion}")
 		workingDir.mkdirs()
+		logger.lifecycle("Minecraft ${minecraftVersion}: compiler Java ${testCompiler.get().metadata.languageVersion}, test JVM Java ${javaLauncher.get().metadata.languageVersion}")
 		systemProperty('fabric.remapClasspathFile', remapClasspath.get().remapClasspathFile.get().asFile.absolutePath)
 		systemProperty('neofabric.test.minecraftVersion', minecraftVersion)
 		systemProperty('neofabric.test.apiVersion', api.apiVersion)
+		systemProperty('neofabric.test.javaVersion', javaVersion)
 	}
 }

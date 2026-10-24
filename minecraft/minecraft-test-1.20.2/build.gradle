@@ -1,4 +1,5 @@
 ext.minecraftTestVersion = '1.20.2'
 ext.minecraftTestYarnBuild = 4
+ext.minecraftTestJavaVersion = 17
 
 apply from: rootProject.file('minecraft/minecraft-test-multiversion/build.gradle')

@@ -62,7 +62,9 @@ class BundledApiVersionsTest {
 		return Stream.of(
 				Arguments.of("1.20.2", "0.91.6+1.20.2"),
 				Arguments.of("1.20.3", "0.91.1+1.20.3"),
-				Arguments.of("1.20.4", "0.97.3+1.20.4"));
+				Arguments.of("1.20.4", "0.97.3+1.20.4"),
+				Arguments.of("1.20.5", "0.97.8+1.20.5"),
+				Arguments.of("1.20.6", "0.100.8+1.20.6"));
 	}
 
 	static Stream<Arguments> environmentCases() {
@@ -142,7 +144,7 @@ class BundledApiVersionsTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"1.20.2", "1.20.3", "1.20.4"})
+	@ValueSource(strings = {"1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6"})
 	void externalCopyOfNewApiIsStillRejectedByGate(String version) throws Exception {
 		BundledApiRegistry.Entry entry = BundledApiRegistry.load().require(version);
 		Path bundled = new BundledModCandidateFinder(tempDir, false, version).extractBundledApi();

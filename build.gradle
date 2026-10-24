@@ -179,6 +179,9 @@ jar {
 
 test {
 	useJUnitPlatform()
+	javaLauncher = javaToolchains.launcherFor {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
 	testLogging {
 		exceptionFormat = 'full'
 	}

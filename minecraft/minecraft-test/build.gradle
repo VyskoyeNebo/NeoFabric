@@ -46,21 +46,33 @@ def remapClasspath = tasks.named("generateRemapClasspath", net.fabricmc.loom.tas
 
 test {
 	useJUnitPlatform()
+	javaLauncher = javaToolchains.launcherFor {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
 	maxHeapSize = "2G"
 	dependsOn remapClasspath
 	inputs.file(remapClasspath.flatMap { it.remapClasspathFile })
 
 	doFirst {
+		logger.lifecycle("Minecraft ${minecraft_version}: compiler Java ${tasks.compileTestJava.javaCompiler.get().metadata.languageVersion}, test JVM Java ${javaLauncher.get().metadata.languageVersion}")
 		systemProperty("fabric.remapClasspathFile", remapClasspath.get().remapClasspathFile.get().asFile.absolutePath)
 	}
 }
 
+sourceSets.test.java.srcDir('src/toolchainTest/java')
+
 java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
 	sourceCompatibility = JavaVersion.VERSION_17
 	targetCompatibility = JavaVersion.VERSION_17
 }
 
 tasks.withType(JavaCompile).configureEach {
+	javaCompiler = javaToolchains.compilerFor {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
 	it.options.encoding = "UTF-8"
 	it.options.release = 17
 }

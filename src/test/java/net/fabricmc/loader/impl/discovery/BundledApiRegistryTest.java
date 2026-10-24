@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Assertions;
@@ -39,9 +40,10 @@ class BundledApiRegistryTest {
 	private static final String TEST_RESOURCE = BundledApiRegistry.RESOURCE_ROOT + "1.20.1/test-api.jar";
 
 	@Test
-	void bundledIndexContainsConfiguredMinecraft1201Through1204() throws IOException {
+	void bundledIndexContainsConfiguredMinecraft1201Through1206() throws IOException {
 		BundledApiRegistry registry = BundledApiRegistry.load();
-		Assertions.assertEquals(Arrays.asList("1.20.1", "1.20.2", "1.20.3", "1.20.4"), new ArrayList<>(registry.getEntries().keySet()));
+		Assertions.assertEquals(Arrays.asList("1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6"),
+				new ArrayList<>(registry.getEntries().keySet()));
 		BundledApiRegistry.Entry entry = registry.require("1.20.1");
 		Assertions.assertEquals("1.20.1", entry.getMinecraftVersion());
 		Assertions.assertEquals("0.92.12+1.20.1", entry.getApiVersion());
@@ -63,9 +65,15 @@ class BundledApiRegistryTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"1.20.5", "1.20.6"})
-	void bundledIndexRejectsVersionsWithoutResources(String version) throws IOException {
-		IOException error = Assertions.assertThrows(IOException.class, () -> BundledApiRegistry.load().require(version));
+	@ValueSource(strings = {"1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6"})
+	void indexWithoutCurrentVersionRejectsEvenWhenOtherVersionsAreConfigured(String version) throws IOException {
+		String records = BundledApiRegistry.load().getEntries().entrySet().stream()
+				.filter(entry -> !entry.getKey().equals(version))
+				.map(entry -> record(entry.getKey(), fields(entry.getValue().getApiVersion(), entry.getValue().getResource(), entry.getValue().getSha512())))
+				.collect(Collectors.joining(","));
+		BundledApiRegistry registry = parse(index(records));
+		Assertions.assertEquals(5, registry.getEntries().size());
+		IOException error = Assertions.assertThrows(IOException.class, () -> registry.require(version));
 		Assertions.assertTrue(error.getMessage().contains("Minecraft " + version));
 		Assertions.assertTrue(error.getMessage().contains("尚未内置"));
 		Assertions.assertTrue(error.getMessage().contains("不会回退"));
@@ -110,7 +118,7 @@ class BundledApiRegistryTest {
 		Assertions.assertThrows(UnsupportedOperationException.class, () -> entries.put("1.20.2", entry));
 		Assertions.assertThrows(UnsupportedOperationException.class, () -> entries.entrySet().iterator().next().setValue(null));
 		Assertions.assertSame(entry, registry.require("1.20.1"));
-		Assertions.assertEquals(Arrays.asList("1.20.1", "1.20.2", "1.20.3", "1.20.4"), new ArrayList<>(entries.keySet()));
+		Assertions.assertEquals(Arrays.asList("1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6"), new ArrayList<>(entries.keySet()));
 	}
 
 	static Stream<Arguments> invalidIndexes() {

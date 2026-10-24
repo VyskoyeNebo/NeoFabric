@@ -68,6 +68,12 @@ class BundledApiIntegrationTest {
 	}
 
 	@Test
+	void actualJavaRuntime() {
+		int expectedJavaVersion = Integer.parseInt(System.getProperty("neofabric.test.javaVersion"));
+		assertEquals(expectedJavaVersion, Runtime.version().feature());
+	}
+
+	@Test
 	void actualMinecraftVersion() {
 		assertNotNull(MINECRAFT_VERSION);
 		assertEquals(MINECRAFT_VERSION, SharedConstants.getGameVersion().getName());
