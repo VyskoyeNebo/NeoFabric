@@ -34,25 +34,28 @@ import net.fabricmc.loader.impl.util.log.Log;
 import net.fabricmc.loader.impl.util.log.LogCategory;
 
 public final class BundledModCandidateFinder implements ModCandidateFinder {
-	static final String API_FILE_NAME = "NeoFabric-API-0.92.12+1.20.1.jar";
-	static final String API_RESOURCE = "/META-INF/neofabric/" + API_FILE_NAME;
-	// Original release: https://modrinth.com/mod/fabric-api/version/rvI2dfzR
-	private static final String API_SHA512 = "de9da2344043b3e9ef9fb7dbfff5f2577b06000c4f73f2a37959a80123141169084"
-			+ "cece19133bd299b45feaaa4648bdaca2ea085684888cc8c55cc9134a477ca";
-
-	private final Path cacheDir;
+	private final Path cacheRoot;
 	private final boolean requiresRemap;
+	private final String minecraftVersion;
+	private final BundledApiRegistry registry;
 
-	public BundledModCandidateFinder(Path gameDir, boolean requiresRemap) {
-		this.cacheDir = gameDir.resolve(FabricLoaderImpl.CACHE_DIR_NAME).resolve("neofabric").resolve("bundled");
+	public BundledModCandidateFinder(Path gameDir, boolean requiresRemap, String minecraftVersion) {
+		this(gameDir, requiresRemap, minecraftVersion, null);
+	}
+
+	BundledModCandidateFinder(Path gameDir, boolean requiresRemap, String minecraftVersion, BundledApiRegistry registry) {
+		this.cacheRoot = gameDir.resolve(FabricLoaderImpl.CACHE_DIR_NAME).resolve("neofabric").resolve("bundled");
 		this.requiresRemap = requiresRemap;
+		this.minecraftVersion = minecraftVersion;
+		this.registry = registry;
 	}
 
 	@Override
 	public void findCandidates(ModCandidateConsumer out) {
 		try {
-			Path api = extractBundledApi();
-			Log.info(LogCategory.DISCOVERY, "加载内置 NeoFabric API：%s", API_FILE_NAME);
+			BundledApiRegistry.Entry entry = selectedApi();
+			Path api = extractBundledApi(entry);
+			Log.info(LogCategory.DISCOVERY, "加载 Minecraft %s 的内置 NeoFabric API：%s", minecraftVersion, entry.getFileName());
 			out.accept(LoaderUtil.normalizeExistingPath(api), requiresRemap);
 
 			if (requiresRemap) {
@@ -62,38 +65,48 @@ public final class BundledModCandidateFinder implements ModCandidateFinder {
 				out.accept(LoaderUtil.normalizeExistingPath(mixinExtras), false);
 			}
 		} catch (IOException e) {
-			throw new FormattedException("NeoFabric API 加载失败", "无法释放或校验内置 NeoFabric API：" + e.getMessage(), e);
+			throw new FormattedException("NeoFabric API 加载失败", "Minecraft " + minecraftVersion + " 的内置 NeoFabric API 无法加载：" + e.getMessage(), e);
 		}
 	}
 
 	Path extractBundledApi() throws IOException {
-		Files.createDirectories(cacheDir);
-		Path target = cacheDir.resolve(API_FILE_NAME);
+		return extractBundledApi(selectedApi());
+	}
 
-		if (Files.isRegularFile(target) && matchesChecksum(target)) {
-			return target;
-		}
+	private BundledApiRegistry.Entry selectedApi() throws IOException {
+		return (registry != null ? registry : BundledApiRegistry.load()).require(minecraftVersion);
+	}
 
-		Path temporary = Files.createTempFile(cacheDir, "neofabric-api-", ".tmp");
+	private Path extractBundledApi(BundledApiRegistry.Entry entry) throws IOException {
+		// Require the selected resource even when a previous run left a valid cache file.
+		try (InputStream resource = BundledModCandidateFinder.class.getResourceAsStream("/" + entry.getResource())) {
+			if (resource == null) throw new IOException("缺少 Minecraft " + minecraftVersion + " 的内置资源 " + entry.getResource());
+			Path cacheDir = cacheRoot.resolve(minecraftVersion).resolve(entry.getSha512().substring(0, 16));
+			Files.createDirectories(cacheDir);
+			Path target = cacheDir.resolve(entry.getFileName());
 
-		try {
-			try (InputStream resource = BundledModCandidateFinder.class.getResourceAsStream(API_RESOURCE)) {
-				if (resource == null) throw new IOException("缺少内置资源 " + API_RESOURCE);
+			if (Files.isRegularFile(target) && matchesChecksum(target, entry.getSha512())) {
+				return target;
+			}
+
+			Path temporary = Files.createTempFile(cacheDir, "neofabric-api-", ".tmp");
+
+			try {
 				Files.copy(resource, temporary, StandardCopyOption.REPLACE_EXISTING);
-			}
 
-			if (!matchesChecksum(temporary)) {
-				throw new IOException("内置 NeoFabric API 的 SHA-512 校验失败");
-			}
+				if (!matchesChecksum(temporary, entry.getSha512())) {
+					throw new IOException("Minecraft " + minecraftVersion + " 的内置 NeoFabric API 的 SHA-512 校验失败");
+				}
 
-			Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-			return target;
-		} finally {
-			Files.deleteIfExists(temporary);
+				Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+				return target;
+			} finally {
+				Files.deleteIfExists(temporary);
+			}
 		}
 	}
 
-	private static boolean matchesChecksum(Path path) throws IOException {
+	private static boolean matchesChecksum(Path path, String expected) throws IOException {
 		MessageDigest digest;
 
 		try {
@@ -118,6 +131,6 @@ public final class BundledModCandidateFinder implements ModCandidateFinder {
 			hex.append(Character.forDigit(value & 0xf, 16));
 		}
 
-		return API_SHA512.equals(hex.toString());
+		return expected.equals(hex.toString());
 	}
 }
