@@ -40,9 +40,9 @@ class BundledApiRegistryTest {
 	private static final String TEST_RESOURCE = BundledApiRegistry.RESOURCE_ROOT + "1.20.1/test-api.jar";
 
 	@Test
-	void bundledIndexContainsConfiguredMinecraft1201Through1206() throws IOException {
+	void bundledIndexContainsAllEighteenConfiguredVersions() throws IOException {
 		BundledApiRegistry registry = BundledApiRegistry.load();
-		Assertions.assertEquals(Arrays.asList("1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6"),
+		Assertions.assertEquals(Arrays.asList("1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6", "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"),
 				new ArrayList<>(registry.getEntries().keySet()));
 		BundledApiRegistry.Entry entry = registry.require("1.20.1");
 		Assertions.assertEquals("1.20.1", entry.getMinecraftVersion());
@@ -54,7 +54,7 @@ class BundledApiRegistryTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6"})
+	@ValueSource(strings = {"1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6", "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"})
 	void supportedButUnconfiguredVersionsNeverFallBack(String version) throws IOException {
 		BundledApiRegistry registry = parse(index(record("1.20.1", fields("test-api", TEST_RESOURCE, TEST_CHECKSUM))));
 		IOException error = Assertions.assertThrows(IOException.class, () -> registry.require(version));
@@ -65,14 +65,14 @@ class BundledApiRegistryTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6"})
+	@ValueSource(strings = {"1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6", "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"})
 	void indexWithoutCurrentVersionRejectsEvenWhenOtherVersionsAreConfigured(String version) throws IOException {
 		String records = BundledApiRegistry.load().getEntries().entrySet().stream()
 				.filter(entry -> !entry.getKey().equals(version))
 				.map(entry -> record(entry.getKey(), fields(entry.getValue().getApiVersion(), entry.getValue().getResource(), entry.getValue().getSha512())))
 				.collect(Collectors.joining(","));
 		BundledApiRegistry registry = parse(index(records));
-		Assertions.assertEquals(5, registry.getEntries().size());
+		Assertions.assertEquals(17, registry.getEntries().size());
 		IOException error = Assertions.assertThrows(IOException.class, () -> registry.require(version));
 		Assertions.assertTrue(error.getMessage().contains("Minecraft " + version));
 		Assertions.assertTrue(error.getMessage().contains("尚未内置"));
@@ -81,7 +81,7 @@ class BundledApiRegistryTest {
 
 	@ParameterizedTest
 	@NullAndEmptySource
-	@ValueSource(strings = {"1.20", "1.20.7", "1.20.1-rc.1", "24w14a", "1.21"})
+	@ValueSource(strings = {"1.20", "1.20.7", "1.20.1-rc.1", "24w14a", "1.21.0", "1.21.12", "1.22"})
 	void unsupportedVersionsAreRejected(String version) throws IOException {
 		IOException error = Assertions.assertThrows(IOException.class, () -> BundledApiRegistry.load().require(version));
 		Assertions.assertTrue(error.getMessage().contains("不支持的 Minecraft 版本"));
@@ -118,7 +118,7 @@ class BundledApiRegistryTest {
 		Assertions.assertThrows(UnsupportedOperationException.class, () -> entries.put("1.20.2", entry));
 		Assertions.assertThrows(UnsupportedOperationException.class, () -> entries.entrySet().iterator().next().setValue(null));
 		Assertions.assertSame(entry, registry.require("1.20.1"));
-		Assertions.assertEquals(Arrays.asList("1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6"), new ArrayList<>(entries.keySet()));
+		Assertions.assertEquals(Arrays.asList("1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6", "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"), new ArrayList<>(entries.keySet()));
 	}
 
 	static Stream<Arguments> invalidIndexes() {

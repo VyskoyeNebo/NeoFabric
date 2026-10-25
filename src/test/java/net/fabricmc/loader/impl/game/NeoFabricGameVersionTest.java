@@ -39,7 +39,7 @@ import net.fabricmc.loader.impl.lib.gson.JsonToken;
 
 class NeoFabricGameVersionTest {
 	@ParameterizedTest
-	@ValueSource(strings = {"1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6"})
+	@ValueSource(strings = {"1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6", "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"})
 	void acceptsSupportedMinecraftVersions(String version) {
 		GameProvider provider = mock();
 		when(provider.getGameId()).thenReturn("minecraft");
@@ -50,7 +50,7 @@ class NeoFabricGameVersionTest {
 
 	@ParameterizedTest
 	@NullAndEmptySource
-	@ValueSource(strings = {"1.19.4", "1.20", "1.20.0", "1.20.7", "1.20.10", "1.20.1-rc.1", "1.20.5-pre.1", "24w14a", "1.21"})
+	@ValueSource(strings = {"1.19.4", "1.20", "1.20.0", "1.20.7", "1.20.10", "1.20.1-rc.1", "1.20.5-pre.1", "24w14a", "1.21.0", "1.21.12", "1.21.11-rc.1", "1.22"})
 	void rejectsOtherVersionsWithoutNullPointer(String version) {
 		GameProvider provider = mock();
 		when(provider.getGameId()).thenReturn("minecraft");
@@ -58,7 +58,7 @@ class NeoFabricGameVersionTest {
 		when(provider.getNormalizedGameVersion()).thenReturn(version);
 		Assertions.assertFalse(NeoFabricGameVersion.isSupported(version));
 		FormattedException error = Assertions.assertThrows(FormattedException.class, () -> NeoFabricGameVersion.check(provider));
-		Assertions.assertTrue(error.getMessage().contains("NeoFabric 仅支持 Minecraft 1.20.1 至 1.20.6（仅正式版）"));
+		Assertions.assertTrue(error.getMessage().contains("NeoFabric 仅支持 Minecraft 1.20.1–1.20.6、1.21–1.21.11（仅白名单中的正式版）"));
 	}
 
 	@ParameterizedTest
@@ -79,7 +79,7 @@ class NeoFabricGameVersionTest {
 
 	@Test
 	void supportedVersionsCannotBeChanged() {
-		Assertions.assertThrows(UnsupportedOperationException.class, () -> NeoFabricGameVersion.SUPPORTED_VERSIONS.add("1.21"));
+		Assertions.assertThrows(UnsupportedOperationException.class, () -> NeoFabricGameVersion.SUPPORTED_VERSIONS.add("1.22"));
 	}
 
 	@Test
