@@ -8,11 +8,11 @@ NeoFabric 本质上就是一个图一乐的东西，基本上就是一个 Fabric
 
 ## 使用前须知
 
-- 支持 Minecraft 1.20.1 至 1.20.6 的六个正式版本，均内置对应版本的 Fabric API，并通过独立 JVM 集成回归。
-- Minecraft 1.20.1 至 1.20.4 使用 Java 17；1.20.5 和 1.20.6 使用 Java 21。
+- NeoFabric 1.2.0 完整支持以下 18 个 Minecraft 正式版本：1.20.1、1.20.2、1.20.3、1.20.4、1.20.5、1.20.6、1.21、1.21.1、1.21.2、1.21.3、1.21.4、1.21.5、1.21.6、1.21.7、1.21.8、1.21.9、1.21.10、1.21.11。
+- 每个版本均内置对应的 Fabric API，并通过独立 JVM 集成回归。Minecraft 1.20.1 至 1.20.4 使用 Java 17，其余受支持版本使用 Java 21。
 - 本加载器仅支持特别定制的 NeoFabric 模组（尽管一个都没有），请勿把普通的 Fabric 模组放入其中。
 - 不需要单独安装 Fabric API，里面已内置，并按游戏版本选择。如果对应版本的内置 API 资源缺失，将直接停止启动，绝不回退使用 1.20.1 的 API。
-- 本仓库发布的是 Loader；旧版 NeoFabric Installer 仍固定安装 Minecraft 1.20.1 和旧版 Loader，需要另行同步升级。
+- 安装时请使用配套的 [NeoFabric Installer 1.2.0](https://github.com/VyskoyeNebo/NeoFabric-Installer/releases/tag/v1.2.0)，可选择上述 18 个版本。旧版安装器不会自动获得新版本列表。
 - 这东西本质是图一乐，若有报错，请谅解。
 
 ## 许可证
