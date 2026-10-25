@@ -5,6 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check release branding
+        run: python3 .github/scripts/check-branding.py
       - uses: actions/setup-java@v4
         with:
           java-version: '8'
